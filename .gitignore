@@ -1,0 +1,11 @@
+/bin/
+/release/
+/reports/
+*.log
+*.env
+/.cache/
+/*.prof
+/server.local.json
+/client.local.json
+/*.key
+/*.pem

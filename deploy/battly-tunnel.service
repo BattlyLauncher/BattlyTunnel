@@ -1,0 +1,28 @@
+[Unit]
+Description=Battly Minecraft TCP Tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=battly-tunnel
+Group=battly-tunnel
+ExecStart=/usr/local/bin/battly-tunnel-server -c /etc/battly-tunnel/server.json
+EnvironmentFile=-/etc/battly-tunnel/auth.env
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=15
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+LockPersonality=true
+RestrictSUIDSGID=true
+CapabilityBoundingSet=
+UMask=0077
+LimitNOFILE=16384
+TasksMax=4096
+
+[Install]
+WantedBy=multi-user.target

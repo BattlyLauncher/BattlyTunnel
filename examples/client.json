@@ -1,0 +1,14 @@
+{
+  "serverAddr": "tunnel.example.com",
+  "serverPort": 7001,
+  "token": "REPLACE_WITH_CLIENT_TOKEN",
+  "proxies": [
+    {
+      "name": "my-world",
+      "type": "tcp",
+      "localIP": "127.0.0.1",
+      "localPort": 25565,
+      "remotePort": 30000
+    }
+  ]
+}
