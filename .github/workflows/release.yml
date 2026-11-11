@@ -4,6 +4,11 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build and verify without publishing
+        type: boolean
+        default: true
 permissions:
   contents: read
 concurrency:
@@ -42,9 +47,11 @@ jobs:
   release:
     if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     needs: verify
-    runs-on: ubuntu-24.04
+    runs-on: windows-2022
+    environment: windows-signing
     permissions:
       contents: write
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
@@ -57,18 +64,46 @@ jobs:
         with:
           node-version: '22'
       - name: Version
+        shell: bash
         run: |
           version="$(cat VERSION)"
           [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
           echo "RELEASE_VERSION=$version" >> "$GITHUB_ENV"
       - run: node scripts/build.cjs
+      - name: Authenticate signing identity
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        env:
+          AZURE_CORE_OUTPUT: none
+      - name: Verify build hashes
+        run: node scripts/signed-manifest.cjs --check
+      - name: Sign Windows client and server
+        shell: pwsh
+        run: |
+          $files = @(); $machines = @()
+          foreach ($arch in @(@('x64', 0x8664), @('ia32', 0x014c), @('arm64', 0xaa64))) {
+            foreach ($role in 'client', 'server') {
+              $files += "bin/win32-$($arch[0])/battly-tunnel-$role.exe"
+              $machines += $arch[1]
+            }
+          }
+          ./scripts/sign-windows.ps1 -Files $files -Machines $machines
+        env:
+          SIGNING_ENDPOINT: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          SIGNING_ACCOUNT_NAME: ${{ secrets.AZURE_SIGNING_ACCOUNT_NAME }}
+          SIGNING_CERTIFICATE_PROFILE: ${{ secrets.AZURE_SIGNING_CERTIFICATE_PROFILE }}
+      - run: node scripts/signed-manifest.cjs --refresh
       - run: node scripts/package-release.cjs
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: tunnel-release
+          path: release/*
+          if-no-files-found: error
       - name: Publish new version
+        if: vars.BATTLY_COMPONENT_RELEASE_PUBLISH_ENABLED == 'true' && (github.event_name == 'push' || !inputs.dry_run)
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          if gh release view "v$RELEASE_VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo 'Version already published; assets unchanged.'
-          else
-            gh release create "v$RELEASE_VERSION" release/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Battly Tunnel $RELEASE_VERSION" --generate-notes
-          fi
+        run: node scripts/publish.cjs

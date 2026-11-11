@@ -41,7 +41,7 @@ The race detector needs a C compiler. Distributed binaries use `CGO_ENABLED=0`; 
 
 Push this repository to the `main` branch. GitHub Actions tests it on Windows, Linux and macOS, builds all targets, and publishes `v1.0.1` from `VERSION`. To publish the next release, change `VERSION` and push. A version already published is not overwritten. Pull requests run checks without publishing.
 
-The workflow uses the repository's built-in `GITHUB_TOKEN`; no deployment credentials are required. GitHub Actions must be enabled and allowed to create releases. These assets are unsigned unless a separate signing step is configured; checksums verify bytes, not publisher identity.
+The workflow uses the repository's built-in `GITHUB_TOKEN` for publishing and a dedicated Azure OIDC identity to sign Windows executables. GitHub Actions must be enabled and allowed to create releases. See [Windows signing](docs/windows-signing.md) for permissions and builds without publication.
 
 ## Documentation
 
